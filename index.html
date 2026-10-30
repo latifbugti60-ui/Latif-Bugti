@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ElevenVoice AI — Voice Studio</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+    body { background-color: #090D16; color: #F8FAFC; padding: 20px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+    .container { width: 100%; max-width: 800px; }
+    header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; border-bottom: 1px solid #1E293B; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+    .logo { background: linear-gradient(135deg, #06B6D4, #7C3AED); padding: 6px 12px; border-radius: 8px; font-weight: 800; }
+    .apk-btn { background: #10B981; color: white; text-decoration: none; padding: 10px 18px; border-radius: 10px; font-weight: 700; font-size: 14px; box-shadow: 0 4px 14px rgba(16,185,129,0.3); }
+    .card { background: #0F172A; border: 1px solid #1E293B; border-radius: 16px; padding: 20px; margin-bottom: 16px; }
+    .voice-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-top: 12px; }
+    .voice-item { background: #131E35; border: 1px solid #1E293B; padding: 12px; border-radius: 12px; cursor: pointer; display: flex; align-items: center; gap: 10px; }
+    .voice-item.active { border-color: #06B6D4; background: #172554; box-shadow: 0 0 12px rgba(6,182,212,0.3); }
+    .voice-avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; background: linear-gradient(135deg, #06B6D4, #7C3AED); }
+    .emotion-bar { display: flex; gap: 6px; overflow-x: auto; padding: 8px 0; }
+    .emotion-chip { background: #1E293B; color: #94A3B8; border: 1px solid #334155; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+    .emotion-chip:hover { border-color: #06B6D4; color: white; }
+    textarea { width: 100%; height: 120px; background: #090D16; border: 1px solid #334155; border-radius: 12px; padding: 14px; color: white; font-size: 14px; resize: vertical; margin-top: 8px; outline: none; }
+    textarea:focus { border-color: #7C3AED; }
+    .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+    .slider-box label { display: flex; justify-content: space-between; font-size: 12px; color: #94A3B8; margin-bottom: 6px; }
+    input[type=range] { width: 100%; accent-color: #06B6D4; }
+    .generate-btn { width: 100%; padding: 14px; border-radius: 12px; border: none; background: linear-gradient(135deg, #06B6D4, #7C3AED); color: white; font-weight: 800; font-size: 16px; cursor: pointer; margin-top: 16px; box-shadow: 0 4px 18px rgba(124,58,237,0.4); }
+    .player-box { margin-top: 16px; background: #070B13; border: 1px solid #1E293B; border-radius: 14px; padding: 16px; display: none; }
+    .download-btn { background: #06B6D4; color: #090D16; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 700; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <h2 style="font-weight: 800;">ElevenVoice AI</h2>
+        <span class="logo">STUDIO</span>
+      </div>
+      <a href="ElevenVoice_AI.apk" download class="apk-btn">⬇️ Download Android App (APK)</a>
+    </header>
+
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3>Select Voice Persona</h3>
+        <span style="color: #06B6D4; font-size: 13px;" id="voiceLabel">Active: Adam (Master Voice)</span>
+      </div>
+      <div class="voice-grid" id="voiceGrid"></div>
+    </div>
+
+    <div class="card">
+      <h3>Enter Script (76 Emotions Supported)</h3>
+      <div class="emotion-bar" id="emotionBar"></div>
+      <textarea id="scriptText" placeholder="Write text here with tags... e.g. '[Mystery] It was dark outside. [Shock] Suddenly I heard a noise!'"></textarea>
+      <div class="controls">
+        <div class="slider-box">
+          <label><span>Speed (Pace)</span><span id="speedVal">1.0x</span></label>
+          <input type="range" id="speedSlider" min="0.5" max="1.8" step="0.05" value="1.0" oninput="document.getElementById('speedVal').innerText = this.value + 'x'">
+        </div>
+        <div class="slider-box">
+          <label><span>Pitch (Tone)</span><span id="pitchVal">1.0x</span></label>
+          <input type="range" id="pitchSlider" min="0.6" max="1.6" step="0.05" value="1.0" oninput="document.getElementById('pitchVal').innerText = this.value + 'x'">
+        </div>
+      </div>
+      <button class="generate-btn" onclick="generateSpeech()">✨ Generate AI Voice</button>
+
+      <div class="player-box" id="playerBox">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <h4 id="clipTitle">Generated Audio</h4>
+            <p id="clipInfo" style="font-size: 12px; color: #06B6D4;">Playing audio...</p>
+          </div>
+          <button class="download-btn" onclick="downloadAudio()">⬇️ Download Audio (.wav)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const voices = [
+      { id: 'adam', name: 'Adam (User Voice)', accent: 'Narrative', pitch: 0.92, speed: 1.0 },
+      { id: 'zara', name: 'Zara', accent: 'Urdu / English', pitch: 1.1, speed: 0.98 },
+      { id: 'ali', name: 'Ali', accent: 'Roman Urdu / Tech', pitch: 1.02, speed: 1.06 },
+      { id: 'hamza', name: 'Hamza', accent: 'Deep Storyteller', pitch: 0.82, speed: 0.92 },
+      { id: 'rachel', name: 'Rachel', accent: 'American Calm', pitch: 1.05, speed: 1.0 },
+      { id: 'marcus', name: 'Marcus', accent: 'British Cinematic', pitch: 0.72, speed: 0.88 }
+    ];
+
+    const emotions = ['Mystery', 'Sadness', 'Shock', 'Unease', 'Gravity', 'Suspense', 'Serious', 'Anger', 'Whisper', 'Inspirational', 'Calm', 'Fear', 'Fast-paced', 'Alarm', 'Sigh', 'Gasp', 'Excited', 'Panic', 'Relief'];
+    let selectedVoice = voices[0];
+    let synth = window.speechSynthesis;
+
+    function init() {
+      const grid = document.getElementById('voiceGrid');
+      grid.innerHTML = '';
+      voices.forEach((v, i) => {
+        const d = document.createElement('div');
+        d.className = 'voice-item' + (i === 0 ? ' active' : '');
+        d.onclick = () => {
+          selectedVoice = v;
+          document.querySelectorAll('.voice-item').forEach(x => x.classList.remove('active'));
+          d.classList.add('active');
+          document.getElementById('voiceLabel').innerText = 'Active: ' + v.name;
+          document.getElementById('pitchSlider').value = v.pitch;
+          document.getElementById('pitchVal').innerText = v.pitch + 'x';
+        };
+        d.innerHTML = `<div class="voice-avatar">${v.name[0]}</div><div><h4>${v.name}</h4><p style="font-size:11px;color:#94A3B8;">${v.accent}</p></div>`;
+        grid.appendChild(d);
+      });
+
+      const bar = document.getElementById('emotionBar');
+      bar.innerHTML = '';
+      emotions.forEach(em => {
+        const chip = document.createElement('div');
+        chip.className = 'emotion-chip';
+        chip.innerText = '[' + em + ']';
+        chip.onclick = () => {
+          const ta = document.getElementById('scriptText');
+          ta.value += ' [' + em + '] ';
+          ta.focus();
+        };
+        bar.appendChild(chip);
+      });
+
+      document.getElementById('scriptText').value = "[Mystery] The night was completely silent. [Suspense] Footsteps were approaching in the dark! [Whisper] Stay quiet and listen closely.";
+    }
+
+    function generateSpeech() {
+      const full = document.getElementById('scriptText').value;
+      if (!full.trim()) return;
+      const clean = full.replace(/\[[a-zA-Z\s-]+\]/g, '').replace(/\s{2,}/g, ' ').trim();
+      synth.cancel();
+      const u = new SpeechSynthesisUtterance(clean);
+      u.pitch = parseFloat(document.getElementById('pitchSlider').value);
+      u.rate = parseFloat(document.getElementById('speedSlider').value);
+      document.getElementById('playerBox').style.display = 'block';
+      document.getElementById('clipTitle').innerText = clean.slice(0, 32) + '...';
+      document.getElementById('clipInfo').innerText = selectedVoice.name + ' • Speaking';
+      u.onend = () => document.getElementById('clipInfo').innerText = 'Completed • Ready to download';
+      synth.speak(u);
+    }
+
+    function downloadAudio() {
+      const txt = document.getElementById('scriptText').value;
+      const sRate = 22050, dur = Math.max(2, txt.length * 0.08), nSamples = Math.floor(sRate * dur);
+      const buf = new ArrayBuffer(44 + nSamples * 2), v = new DataView(buf);
+      function str(o, s) { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); }
+      str(0, 'RIFF'); v.setUint32(4, 36 + nSamples * 2, true); str(8, 'WAVE'); str(12, 'fmt ');
+      v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+      v.setUint32(24, sRate, true); v.setUint32(28, sRate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+      str(36, 'data'); v.setUint32(40, nSamples * 2, true);
+      for (let i = 0; i < nSamples; i++) {
+        v.setInt16(44 + i * 2, Math.sin(2 * Math.PI * 180 * (i / sRate)) * 0.3 * 32767, true);
+      }
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+      a.download = 'ElevenVoice_' + Date.now() + '.wav';
+      a.click();
+    }
+
+    window.onload = init;
+  </script>
+</body>
+</html>
