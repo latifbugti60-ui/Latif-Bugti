@@ -7,6 +7,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.ExpandLess
@@ -96,6 +98,7 @@ fun StudioScreen(
     val isPreviewPlaying by viewModel.isPreviewPlaying.collectAsState()
     val liveAmplitudes by viewModel.liveAmplitudes.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
+    val downloadMessage by viewModel.downloadMessage.collectAsState()
 
     val clipboardManager = LocalClipboardManager.current
     var areSlidersExpanded by remember { mutableStateOf(false) }
@@ -446,6 +449,78 @@ fun StudioScreen(
                 }
             }
 
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Quick Emotion Tags Selector Bar (76 Expressive Vocal Emotions)
+            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Insert Emotion Tag (76 Styles):",
+                        color = Slate400,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+
+                    val detectedEmotion = remember(scriptText) {
+                        com.example.audio.EmotionSpeechParser.detectDominantEmotion(scriptText)
+                    }
+                    if (detectedEmotion != null) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(NeonCyan.copy(alpha = 0.2f))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = "Detected: [${detectedEmotion.name}]",
+                                color = NeonCyan,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                val quickEmotions = listOf(
+                    "Mystery", "Sadness", "Shock", "Unease", "Gravity", "Suspense",
+                    "Serious", "Anger", "Tension", "Deep Sadness", "Whisper", "Inspirational",
+                    "Calm", "Awe", "Fear", "Fast-paced", "Hope", "Sigh", "Gasp", "Excited",
+                    "Crying", "Furious", "Terrified", "Laughing", "Panic", "Relief", "Pride"
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    quickEmotions.forEach { em ->
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Slate800)
+                                .border(0.5.dp, Slate700, RoundedCornerShape(8.dp))
+                                .clickable { viewModel.insertEmotionTag(em) }
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                .testTag("emotion_tag_${em.lowercase()}")
+                        ) {
+                            Text(
+                                text = "[$em]",
+                                color = Slate200,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(6.dp))
 
             OutlinedTextField(
@@ -453,9 +528,10 @@ fun StudioScreen(
                 onValueChange = { viewModel.setScriptText(it) },
                 placeholder = {
                     Text(
-                        text = "Type or paste your text here (English, Roman Urdu, etc.)...\n(e.g. 'Welcome to my podcast. Today we explore AI voice cloning.')",
+                        text = "Add emotion tags like [Mystery], [Shock], [Whisper], [Sadness]...\n(e.g. '[Mystery] It was dark outside. [Suspense] Suddenly I heard a noise.')\n*Note: Emotion tags shape vocal pitch & pace and are NEVER read aloud!",
                         color = Slate700,
-                        fontSize = 13.sp
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp
                     )
                 },
                 minLines = 4,
@@ -700,10 +776,49 @@ fun StudioScreen(
                 liveAmplitudes = liveAmplitudes,
                 onPlayPause = { viewModel.playAudioFile(clip.filePath) },
                 onSeek = { viewModel.seekTo(it) },
+                onDownload = { viewModel.downloadClip(clip) },
                 onShare = { viewModel.shareClip(clip) },
                 onToggleFavorite = { viewModel.toggleFavorite(clip) },
                 onSpeedChange = { viewModel.audioEngine.setSpeed(it) }
             )
+
+            if (downloadMessage != null) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF10B981).copy(alpha = 0.15f))
+                        .border(1.dp, Color(0xFF10B981), RoundedCornerShape(12.dp))
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = null,
+                        tint = Color(0xFF10B981),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = downloadMessage ?: "",
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(
+                        onClick = { viewModel.clearDownloadMessage() },
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Clear,
+                            contentDescription = "Dismiss",
+                            tint = Slate400,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(24.dp))

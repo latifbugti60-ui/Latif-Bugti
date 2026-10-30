@@ -1,15 +1,20 @@
 package com.example.audio
 
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.media.MediaPlayer
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.provider.MediaStore
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.speech.tts.Voice
 import android.util.Log
 import androidx.core.content.FileProvider
+import com.example.R
 import com.example.data.model.VoicePersona
 import com.example.data.model.VoiceSettings
 import kotlinx.coroutines.CoroutineScope
@@ -43,7 +48,9 @@ class VoiceEngineManager(private val context: Context) {
     private val scope = CoroutineScope(Dispatchers.Main)
 
     private var mediaPlayer: MediaPlayer? = null
+    private var previewPlayer: MediaPlayer? = null
     private var progressJob: Job? = null
+    private var previewProgressJob: Job? = null
     private var currentPlayingFile: String? = null
 
     private val _playbackState = MutableStateFlow<PlaybackState>(PlaybackState.Idle)
@@ -102,12 +109,10 @@ class VoiceEngineManager(private val context: Context) {
     }
 
     /**
-     * Preview sample speech for a given voice directly through TTS.
+     * Preview sample speech for a given voice.
+     * If the voice has a real recorded audio sample (like user's master voice), plays that exact file!
      */
     fun previewVoice(voice: VoicePersona) {
-        val currentTts = tts ?: return
-        if (!isTtsInitialized) return
-
         // If already previewing this voice, stop it
         if (_isPreviewPlaying.value == voice.id) {
             stopPreview()
@@ -118,6 +123,53 @@ class VoiceEngineManager(private val context: Context) {
         stopPreview()
 
         _isPreviewPlaying.value = voice.id
+
+        // Check if there is an audio sample attached (like R.raw.latif_master_voice)
+        if (voice.audioSamplePath == "raw:latif_master_voice" || voice.id == "adam") {
+            try {
+                val player = MediaPlayer.create(context, R.raw.latif_master_voice)
+                if (player != null) {
+                    player.setOnCompletionListener {
+                        stopPreview()
+                    }
+                    player.setOnErrorListener { _, _, _ ->
+                        stopPreview()
+                        true
+                    }
+                    player.start()
+                    previewPlayer = player
+                    startPreviewProgressTracker()
+                    return
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error playing raw sample preview: ${e.message}")
+            }
+        } else if (voice.audioSamplePath != null && File(voice.audioSamplePath).exists()) {
+            try {
+                val player = MediaPlayer().apply {
+                    setDataSource(voice.audioSamplePath)
+                    setOnCompletionListener {
+                        stopPreview()
+                    }
+                    setOnErrorListener { _, _, _ ->
+                        stopPreview()
+                        true
+                    }
+                    prepare()
+                    start()
+                }
+                previewPlayer = player
+                startPreviewProgressTracker()
+                return
+            } catch (e: Exception) {
+                Log.e(TAG, "Error playing custom sample preview: ${e.message}")
+            }
+        }
+
+        // Fallback to TTS preview
+        val currentTts = tts ?: return
+        if (!isTtsInitialized) return
+
         configureVoice(currentTts, voice, VoiceSettings())
 
         val utteranceId = "preview_${voice.id}_${System.currentTimeMillis()}"
@@ -127,73 +179,183 @@ class VoiceEngineManager(private val context: Context) {
         currentTts.speak(voice.sampleQuote, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
     }
 
+    private fun startPreviewProgressTracker() {
+        previewProgressJob?.cancel()
+        previewProgressJob = scope.launch {
+            var step = 0
+            while (isActive && previewPlayer != null && previewPlayer?.isPlaying == true) {
+                step++
+                val newAmps = List(24) { i ->
+                    val wave = Math.sin((step * 0.45) + (i * 0.35)).toFloat()
+                    val wave2 = Math.cos((step * 0.25) - (i * 0.2)).toFloat()
+                    (0.25f + 0.38f * Math.abs(wave) + 0.37f * Math.abs(wave2)).coerceIn(0.12f, 1.0f)
+                }
+                _liveAmplitudes.value = newAmps
+                delay(75)
+            }
+            _liveAmplitudes.value = List(24) { 0.15f }
+        }
+    }
+
     fun stopPreview() {
         tts?.stop()
+        previewProgressJob?.cancel()
+        previewProgressJob = null
+        try {
+            previewPlayer?.stop()
+            previewPlayer?.release()
+        } catch (e: Exception) {
+            // Ignore
+        }
+        previewPlayer = null
         _isPreviewPlaying.value = null
+        _liveAmplitudes.value = List(24) { 0.15f }
     }
 
     /**
      * Synthesize text into a WAV file in the app cache directory.
+     * Parses inline emotion tags (e.g. [Mystery], [Sadness], [Whisper]), strips them so they are NEVER
+     * spoken aloud, and modulates acoustic pitch/speed per segment before assembling the output WAV!
      */
     suspend fun synthesizeSpeechToFile(
         text: String,
         voice: VoicePersona,
         settings: VoiceSettings
-    ): File? = suspendCancellableCoroutine { continuation ->
-        val currentTts = tts
-        if (currentTts == null || !isTtsInitialized) {
-            continuation.resume(null)
-            return@suspendCancellableCoroutine
-        }
+    ): File? {
+        val currentTts = tts ?: return null
+        if (!isTtsInitialized) return null
 
         _isSynthesizing.value = true
         stopPlayback()
         stopPreview()
 
+        val defaultProfile = EmotionRegistry.getProfile("Narrative") ?: EmotionProfile("Narrative", 1.0f, 1.0f)
+        val segments = EmotionSpeechParser.parseScriptSegments(text, defaultProfile)
+
         val outputDir = File(context.cacheDir, "audio_cache").apply { if (!exists()) mkdirs() }
         val outputFile = File(outputDir, "eleven_${voice.id}_${System.currentTimeMillis()}.wav")
 
-        configureVoice(currentTts, voice, settings)
+        if (segments.isEmpty()) {
+            _isSynthesizing.value = false
+            return null
+        }
 
-        val utteranceId = "synth_${UUID.randomUUID()}"
-        val listener = object : UtteranceProgressListener() {
-            override fun onStart(id: String?) {
-                Log.d(TAG, "Synthesizing started for $id")
-            }
+        if (segments.size == 1) {
+            val seg = segments[0]
+            val modSettings = settings.copy(
+                pitch = (settings.pitch * seg.emotion.pitchMultiplier).coerceIn(0.5f, 2.0f),
+                speed = (settings.speed * seg.emotion.speedMultiplier).coerceIn(0.5f, 2.0f)
+            )
+            val success = synthesizeSingleChunk(currentTts, seg.spokenText, voice, modSettings, outputFile)
+            _isSynthesizing.value = false
+            return if (success && outputFile.exists()) outputFile else null
+        }
 
-            override fun onDone(id: String?) {
-                if (id == utteranceId) {
-                    _isSynthesizing.value = false
-                    continuation.resume(outputFile)
-                }
-            }
-
-            @Deprecated("Deprecated in Java")
-            override fun onError(id: String?) {
-                if (id == utteranceId) {
-                    _isSynthesizing.value = false
-                    continuation.resume(null)
-                }
-            }
-
-            override fun onError(id: String?, errorCode: Int) {
-                if (id == utteranceId) {
-                    _isSynthesizing.value = false
-                    continuation.resume(null)
-                }
+        // Multiple emotion segments: synthesize each chunk with its custom emotion pitch & speed
+        val chunkFiles = mutableListOf<File>()
+        for (i in segments.indices) {
+            val seg = segments[i]
+            if (seg.spokenText.isBlank()) continue
+            val chunkFile = File(outputDir, "chunk_${System.currentTimeMillis()}_$i.wav")
+            val modSettings = settings.copy(
+                pitch = (settings.pitch * seg.emotion.pitchMultiplier).coerceIn(0.5f, 2.0f),
+                speed = (settings.speed * seg.emotion.speedMultiplier).coerceIn(0.5f, 2.0f)
+            )
+            val success = synthesizeSingleChunk(currentTts, seg.spokenText, voice, modSettings, chunkFile)
+            if (success && chunkFile.exists() && chunkFile.length() > 44) {
+                chunkFiles.add(chunkFile)
             }
         }
 
-        currentTts.setOnUtteranceProgressListener(listener)
+        val merged = concatenateWavFiles(chunkFiles, outputFile)
+        _isSynthesizing.value = false
+        return if (merged && outputFile.exists()) outputFile else null
+    }
 
+    private suspend fun synthesizeSingleChunk(
+        currentTts: TextToSpeech,
+        spokenText: String,
+        voice: VoicePersona,
+        settings: VoiceSettings,
+        targetFile: File
+    ): Boolean = suspendCancellableCoroutine { continuation ->
+        configureVoice(currentTts, voice, settings)
+        val utteranceId = "synth_chunk_${UUID.randomUUID()}"
+        val listener = object : UtteranceProgressListener() {
+            override fun onStart(id: String?) {}
+            override fun onDone(id: String?) {
+                if (id == utteranceId) continuation.resume(true)
+            }
+            @Deprecated("Deprecated in Java")
+            override fun onError(id: String?) {
+                if (id == utteranceId) continuation.resume(false)
+            }
+            override fun onError(id: String?, errorCode: Int) {
+                if (id == utteranceId) continuation.resume(false)
+            }
+        }
+        currentTts.setOnUtteranceProgressListener(listener)
         val params = Bundle().apply {
             putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId)
         }
+        val res = currentTts.synthesizeToFile(spokenText, params, targetFile, utteranceId)
+        if (res != TextToSpeech.SUCCESS) {
+            continuation.resume(false)
+        }
+    }
 
-        val result = currentTts.synthesizeToFile(text, params, outputFile, utteranceId)
-        if (result != TextToSpeech.SUCCESS) {
-            _isSynthesizing.value = false
-            continuation.resume(null)
+    private fun concatenateWavFiles(chunkFiles: List<File>, outputFile: File): Boolean {
+        if (chunkFiles.isEmpty()) return false
+        if (chunkFiles.size == 1) {
+            chunkFiles.first().copyTo(outputFile, overwrite = true)
+            return true
+        }
+
+        try {
+            val firstFile = chunkFiles.first()
+            val headerBytes = ByteArray(44)
+            firstFile.inputStream().use { it.read(headerBytes) }
+
+            var totalPcmSize = 0L
+            for (f in chunkFiles) {
+                val pcmSize = (f.length() - 44L).coerceAtLeast(0L)
+                totalPcmSize += pcmSize
+            }
+
+            val totalChunkSize = totalPcmSize + 36L
+
+            // Update ChunkSize at offset 4..7 (little endian 32-bit)
+            headerBytes[4] = (totalChunkSize and 0xffL).toByte()
+            headerBytes[5] = ((totalChunkSize shr 8) and 0xffL).toByte()
+            headerBytes[6] = ((totalChunkSize shr 16) and 0xffL).toByte()
+            headerBytes[7] = ((totalChunkSize shr 24) and 0xffL).toByte()
+
+            // Update Subchunk2Size at offset 40..43 (little endian 32-bit)
+            headerBytes[40] = (totalPcmSize and 0xffL).toByte()
+            headerBytes[41] = ((totalPcmSize shr 8) and 0xffL).toByte()
+            headerBytes[42] = ((totalPcmSize shr 16) and 0xffL).toByte()
+            headerBytes[43] = ((totalPcmSize shr 24) and 0xffL).toByte()
+
+            outputFile.outputStream().use { outStream ->
+                outStream.write(headerBytes)
+                val buffer = ByteArray(4096)
+                for (f in chunkFiles) {
+                    f.inputStream().use { inStream ->
+                        inStream.skip(44)
+                        var bytesRead: Int
+                        while (inStream.read(buffer).also { bytesRead = it } != -1) {
+                            outStream.write(buffer, 0, bytesRead)
+                        }
+                    }
+                }
+            }
+
+            // Cleanup chunk files
+            chunkFiles.forEach { it.delete() }
+            return true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error concatenating WAV segments: ${e.message}", e)
+            return false
         }
     }
 
@@ -383,6 +545,48 @@ class VoiceEngineManager(private val context: Context) {
     private fun stopProgressTracker() {
         progressJob?.cancel()
         progressJob = null
+    }
+
+    /**
+     * Download generated audio file directly to device's public Downloads folder.
+     */
+    fun downloadAudio(context: Context, filePath: String, scriptTitle: String): String? {
+        return try {
+            val srcFile = File(filePath)
+            if (!srcFile.exists()) return null
+
+            val cleanTitle = scriptTitle.replace(Regex("[^a-zA-Z0-9_-]"), "_")
+                .trim('_')
+                .take(24)
+                .ifBlank { "voice_audio" }
+            val fileName = "ElevenVoice_${cleanTitle}_${System.currentTimeMillis()}.wav"
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val resolver = context.contentResolver
+                val contentValues = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                    put(MediaStore.MediaColumns.MIME_TYPE, "audio/wav")
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/ElevenVoice")
+                }
+
+                val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues) ?: return null
+                resolver.openOutputStream(uri)?.use { out ->
+                    srcFile.inputStream().use { inp ->
+                        inp.copyTo(out)
+                    }
+                }
+                "Downloads/ElevenVoice/$fileName"
+            } else {
+                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                val targetDir = File(downloadsDir, "ElevenVoice").apply { if (!exists()) mkdirs() }
+                val destFile = File(targetDir, fileName)
+                srcFile.copyTo(destFile, overwrite = true)
+                destFile.absolutePath
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error downloading audio to Downloads: ${e.message}", e)
+            null
+        }
     }
 
     /**

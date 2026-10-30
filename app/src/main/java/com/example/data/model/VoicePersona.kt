@@ -23,18 +23,21 @@ object VoicePresets {
     val allVoices: List<VoicePersona> = listOf(
         VoicePersona(
             id = "adam",
-            name = "Adam",
+            name = "Adam (User Cloned Voice)",
             gender = "Male",
-            accent = "American (Deep)",
-            toneTag = "Authoritative & Narrative",
-            description = "Deep, resonant voice perfect for audiobooks, documentary narrations, and bold announcements.",
-            category = "Narration",
-            avatarGradientStart = 0xFF4F46E5,
-            avatarGradientEnd = 0xFF06B6D4,
-            sampleQuote = "Welcome to ElevenVoice AI. The power of expressive, hyper-realistic voice synthesis is in your hands.",
+            accent = "Natural Conversational",
+            toneTag = "Latif Master Audio Clone",
+            description = "Cloned directly from your uploaded voice recording. Warm, resonant, articulate, and conversational.",
+            category = "My Cloned Voices",
+            avatarGradientStart = 0xFF00E5FF,
+            avatarGradientEnd = 0xFF7C3AED,
+            sampleQuote = "You've eaten corn your whole life. In your cereal, your chips, your soda. It's so normal that you never even think about it. But there's another grain that needs about a third less water than corn...",
             localeTag = "en-US",
-            defaultPitch = 0.85f,
-            defaultSpeed = 0.95f
+            defaultPitch = 0.92f,
+            defaultSpeed = 1.02f,
+            isCustom = true,
+            isClonedFromMic = true,
+            audioSamplePath = "raw:latif_master_voice"
         ),
         VoicePersona(
             id = "rachel",

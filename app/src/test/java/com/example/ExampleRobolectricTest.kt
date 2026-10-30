@@ -58,4 +58,30 @@ class ExampleRobolectricTest {
         assertTrue(cloned.isCustom)
         assertEquals("My Cloned Voices", cloned.category)
     }
+
+    @Test
+    fun `verify emotion tags are stripped and mapped`() {
+        val input = "[Mystery] It was dark. [Shock] Sudden lightning! [Sigh] Glad we made it."
+        val stripped = com.example.audio.EmotionSpeechParser.stripAllEmotionTags(input)
+        assertEquals("It was dark. Sudden lightning! Glad we made it.", stripped)
+        assertTrue(!stripped.contains("[Mystery]"))
+        assertTrue(!stripped.contains("[Shock]"))
+        assertTrue(!stripped.contains("[Sigh]"))
+
+        val mystery = com.example.audio.EmotionRegistry.getProfile("Mystery")
+        assertTrue(mystery != null)
+        assertTrue(mystery!!.pitchMultiplier < 1.0f)
+
+        val shock = com.example.audio.EmotionRegistry.getProfile("Shock")
+        assertTrue(shock != null)
+        assertTrue(shock!!.pitchMultiplier > 1.0f)
+
+        val allEmotions = com.example.audio.EmotionRegistry.getAllEmotionNames()
+        assertTrue(allEmotions.contains("Mystery"))
+        assertTrue(allEmotions.contains("Sadness"))
+        assertTrue(allEmotions.contains("Shock"))
+        assertTrue(allEmotions.contains("Whispers"))
+        assertTrue(allEmotions.contains("Clears throat"))
+        assertTrue(allEmotions.contains("Heavy breathing"))
+    }
 }

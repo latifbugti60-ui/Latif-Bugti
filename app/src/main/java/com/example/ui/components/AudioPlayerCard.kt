@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay
@@ -60,6 +61,7 @@ fun AudioPlayerCard(
     liveAmplitudes: List<Float>,
     onPlayPause: () -> Unit,
     onSeek: (Long) -> Unit,
+    onDownload: () -> Unit,
     onShare: () -> Unit,
     onToggleFavorite: () -> Unit,
     onSpeedChange: (Float) -> Unit,
@@ -151,6 +153,20 @@ fun AudioPlayerCard(
                         imageVector = if (clip.isFavorite) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
                         contentDescription = "Favorite",
                         tint = if (clip.isFavorite) ElectricViolet else Slate400,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                IconButton(
+                    onClick = onDownload,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .testTag("download_audio_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.FileDownload,
+                        contentDescription = "Download audio to phone",
+                        tint = NeonCyan,
                         modifier = Modifier.size(20.dp)
                     )
                 }

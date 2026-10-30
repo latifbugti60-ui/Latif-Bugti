@@ -148,6 +148,12 @@ class ElevenVoiceViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
+    fun insertEmotionTag(tag: String) {
+        val current = _scriptText.value
+        val tagStr = "[$tag] "
+        _scriptText.value = if (current.isBlank()) tagStr else "$current $tagStr"
+    }
+
     fun resetSettingsToDefault() {
         _voiceSettings.value = VoiceSettings()
     }
@@ -193,7 +199,10 @@ class ElevenVoiceViewModel(application: Application) : AndroidViewModel(applicat
                     // Estimate duration in ms roughly if needed or read via MediaPlayer
                     val estimatedDurMs = ((text.length * 75L) / settings.speed).toLong().coerceAtLeast(1200L)
 
-                    val titleExcerpt = if (text.length > 36) text.take(36) + "..." else text
+                    val detected = com.example.audio.EmotionSpeechParser.detectDominantEmotion(text)
+                    val cleanText = com.example.audio.EmotionSpeechParser.stripAllEmotionTags(text)
+                    val titleExcerpt = if (cleanText.length > 36) cleanText.take(36) + "..." else cleanText.ifBlank { text.take(36) }
+
                     val entity = VoiceClipEntity(
                         title = titleExcerpt,
                         text = text,
@@ -204,7 +213,7 @@ class ElevenVoiceViewModel(application: Application) : AndroidViewModel(applicat
                         durationMs = estimatedDurMs,
                         timestamp = System.currentTimeMillis(),
                         fileSizeBytes = fileLength,
-                        emotion = settings.emotion.label,
+                        emotion = detected?.name ?: settings.emotion.label,
                         speed = settings.speed,
                         pitch = settings.pitch,
                         isFavorite = false
@@ -245,6 +254,22 @@ class ElevenVoiceViewModel(application: Application) : AndroidViewModel(applicat
 
     fun stopPlayback() {
         audioEngine.stopPlayback()
+    }
+
+    private val _downloadMessage = MutableStateFlow<String?>(null)
+    val downloadMessage: StateFlow<String?> = _downloadMessage.asStateFlow()
+
+    fun downloadClip(clip: VoiceClipEntity) {
+        val dest = audioEngine.downloadAudio(getApplication(), clip.filePath, clip.title)
+        if (dest != null) {
+            _downloadMessage.value = "Saved to: $dest"
+        } else {
+            _downloadMessage.value = "Download failed."
+        }
+    }
+
+    fun clearDownloadMessage() {
+        _downloadMessage.value = null
     }
 
     fun shareClip(clip: VoiceClipEntity) {

@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -248,6 +249,7 @@ fun HistoryScreen(
                         playbackState = playbackState,
                         liveAmplitudes = liveAmplitudes,
                         onPlayPause = { viewModel.playAudioFile(clip.filePath) },
+                        onDownload = { viewModel.downloadClip(clip) },
                         onShare = { viewModel.shareClip(clip) },
                         onToggleFavorite = { viewModel.toggleFavorite(clip) },
                         onDelete = { viewModel.deleteClip(clip) }
@@ -264,6 +266,7 @@ fun HistoryClipCard(
     playbackState: PlaybackState,
     liveAmplitudes: List<Float>,
     onPlayPause: () -> Unit,
+    onDownload: () -> Unit,
     onShare: () -> Unit,
     onToggleFavorite: () -> Unit,
     onDelete: () -> Unit,
@@ -326,6 +329,20 @@ fun HistoryClipCard(
                         imageVector = if (clip.isFavorite) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
                         contentDescription = "Favorite",
                         tint = if (clip.isFavorite) ElectricViolet else Slate400,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                IconButton(
+                    onClick = onDownload,
+                    modifier = Modifier
+                        .size(32.dp)
+                        .testTag("history_download_button_${clip.id}")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.FileDownload,
+                        contentDescription = "Download to phone",
+                        tint = NeonCyan,
                         modifier = Modifier.size(18.dp)
                     )
                 }

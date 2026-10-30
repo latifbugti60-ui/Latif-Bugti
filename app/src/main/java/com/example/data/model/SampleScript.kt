@@ -10,57 +10,39 @@ data class SampleScript(
 object ScriptPresets {
     val samples: List<SampleScript> = listOf(
         SampleScript(
-            title = "Roman Urdu Kahani",
-            category = "Roman Urdu",
-            text = "Ek dafa ka zikr hai, ek khoobsurat wadi mein shaam ka sooraj dhal raha tha. Door paharon ke peeche parinday apne ghonslon ki taraf laut rahe thay. Hawa mein mitti ki sondhi khushboo rachi hui thi, jaise kisi purane zamane ki daastaan yaad dila rahi ho.",
-            recommendedVoiceId = "hamza_urdu"
-        ),
-        SampleScript(
-            title = "Roman Urdu Shayari",
-            category = "Roman Urdu",
-            text = "Sitaron se aage jahan aur bhi hain,\nAbhi ishq ke imtehan aur bhi hain.\nQana'at na kar aalam-e-rang-o-boo par,\nChaman aur bhi, aashiyan aur bhi hain.",
-            recommendedVoiceId = "zara_urdu"
-        ),
-        SampleScript(
-            title = "Roman Urdu Tech / YouTube",
-            category = "Roman Urdu",
-            text = "Dosto, aaj ki video mein hum baat karne ja rahe hain ek aise AI voice generator ke baare mein jo bilkul ElevenLabs ki tarah studio quality aawaz generate karta hai. Video ko like karein aur channel ko zaroor subscribe karein!",
-            recommendedVoiceId = "ali_roman"
-        ),
-        SampleScript(
-            title = "Roman Urdu Motivation",
-            category = "Roman Urdu",
-            text = "Zindagi mein kabhi bhi haar mat mano. Har mushkil waqt ek naya sabaq le kar aata hai. Tumhari mehnat aur tumhara hausla hi tumhe kamyabi tak pohanchaye ga.",
-            recommendedVoiceId = "hamza_urdu"
-        ),
-        SampleScript(
-            title = "اردو کہانی (Urdu Tale)",
-            category = "Urdu Script",
-            text = "ایک خوبصورت وادی میں شام کا سورج ڈھل رہا تھا۔ دور پہاڑوں کے پیچھے پرندوں کی ڈاریں اپنے گھونسلوں کی طرف لوٹ رہی تھیں۔ ہوا میں مٹی کی سوندھی خوشبو رچی ہوئی تھی، جیسے پرانے وقتوں کی کوئی بھولی بسری داستان یاد دلا رہی ہو۔",
-            recommendedVoiceId = "hamza_urdu"
-        ),
-        SampleScript(
-            title = "اردو شاعری (Urdu Poetry)",
-            category = "Urdu Script",
-            text = "ستاروں سے آگے جہاں اور بھی ہیں،\nابھی عشق کے امتحاں اور بھی ہیں۔\nقناعت نہ کر عالمِ رنگ و بو پر،\nچمن اور بھی، آشیاں اور بھی ہیں۔",
-            recommendedVoiceId = "zara_urdu"
-        ),
-        SampleScript(
-            title = "AI Voice Intro",
-            category = "Narration",
-            text = "In an era of limitless digital creation, artificial intelligence transforms simple written thoughts into lifelike human speech. Every syllable carries resonance, intention, and breath.",
+            title = "Multi-Emotion Thriller",
+            category = "Storytelling",
+            text = "[Mystery] The ancient library was completely silent. [Suspense] Deep between the bookshelves, a faint ticking began. [Unease] Something was moving in the dark. [Shock] Suddenly a shadow leapt forward! [Whisper] Hold your breath and do not look back.",
             recommendedVoiceId = "adam"
         ),
         SampleScript(
-            title = "Cinematic Movie Trailer",
+            title = "Roman Urdu Dramatic Story",
+            category = "Roman Urdu",
+            text = "[Mystery] Raat ke andhere mein ajeeb khamoshi thi. [Suspense] Achanak darwazay ke peeche se kisi ke chalne ki aawaz aayi. [Shock] Darwaza zor se band ho gaya! [Whisper] Chup raho, koi sun na le. [Relief] Shukar hai, wo sirf hawa ka jhonka tha.",
+            recommendedVoiceId = "adam"
+        ),
+        SampleScript(
+            title = "Emotional Poetry & Sigh",
+            category = "Emotion",
+            text = "[Sadness] Zindagi ki raahon mein kitne musafir milte hain aur bichhad jate hain. [Sigh] Jo guzar gaya wo laut kar nahi aata. [Deep Sadness] Aur dil ke konay mein sirf ek dard reh jata hai.",
+            recommendedVoiceId = "adam"
+        ),
+        SampleScript(
+            title = "Corn & Drought (Master Voice)",
+            category = "Narrative",
+            text = "You've eaten corn your whole life. In your cereal, your chips, your soda. It's so normal that you never even think about it. But there's another grain that needs about a third less water than corn. It survives droughts that kill corn where it stands.",
+            recommendedVoiceId = "adam"
+        ),
+        SampleScript(
+            title = "Fast-Paced Action Teaser",
             category = "Cinematic",
-            text = "They told us the signal was lost ten thousand light years away. They were wrong. It didn't fade... it evolved. This summer, prepare to face what was waiting in the dark.",
+            text = "[Action] The engines are roaring at full throttle! [Alarm] Hostile drones detected on the radar! [Panic] We lost the secondary thruster! [Determination] Hold on tight, we are breaking through the barrier!",
             recommendedVoiceId = "marcus"
         ),
         SampleScript(
-            title = "Calm Guided Meditation",
+            title = "Calm Guided Sanctuary",
             category = "Conversational",
-            text = "Welcome to your sanctuary of stillness. Relax your shoulders. Inhale deeply through your nose, letting calmness fill your mind, and gently exhale any tension away.",
+            text = "[Calm] Welcome to your quiet sanctuary. [Soft] Inhale deeply and let go of any tension. [Whisper] In this stillness, peace surrounds you completely.",
             recommendedVoiceId = "rachel"
         )
     )
